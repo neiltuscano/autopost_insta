@@ -1,0 +1,29 @@
+# Environment & secrets — never commit these
+.env
+*-sheets-key.json
+*.pem
+*.p12
+
+# Generated output — large files, regenerated daily
+output/
+data/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Logs
+logs/
+*.log
+
+# Fonts (auto-downloaded on first run)
+fonts/

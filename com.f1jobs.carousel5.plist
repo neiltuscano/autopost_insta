@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Carousel 5/5 — 6:00 PM: post only -->
+    <key>Label</key>
+    <string>com.f1jobs.carousel5</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/neil/Projects/f1jobs/run.sh</string>
+        <string>5</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>18</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/neil/Projects/f1jobs/logs/launchd_carousel5_out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/neil/Projects/f1jobs/logs/launchd_carousel5_err.log</string>
+
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>

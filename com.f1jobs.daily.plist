@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+    <!-- Unique identifier for this scheduled task -->
+    <key>Label</key>
+    <string>com.f1jobs.daily</string>
+
+    <!-- Script to run -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/neil/Projects/f1jobs/run.sh</string>
+    </array>
+
+    <!-- Run every day at 8:00 AM local time -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- If Mac was asleep at 8am, run as soon as it wakes up -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- Log files -->
+    <key>StandardOutPath</key>
+    <string>/Users/neil/Projects/f1jobs/logs/launchd_out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/neil/Projects/f1jobs/logs/launchd_err.log</string>
+
+    <!-- Keep alive on crash -->
+    <key>KeepAlive</key>
+    <false/>
+
+</dict>
+</plist>
