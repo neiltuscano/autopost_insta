@@ -51,7 +51,7 @@ cd "$PROJECT_DIR"
 # ── Carousel 1: full pipeline (fetch + generate all + sync + post 1) ──────────
 if [ "$CAROUSEL_NUM" = "1" ]; then
     echo "  [1/2] Running full pipeline (fetch, generate, sync to Sheets)..." >> "$LOG_FILE"
-    "$PYTHON" daily_run.py --no-post >> "$LOG_FILE" 2>&1
+    "$PYTHON" -u daily_run.py --no-post >> "$LOG_FILE" 2>&1
     EXIT_CODE=$?
 
     if [ $EXIT_CODE -ne 0 ]; then
