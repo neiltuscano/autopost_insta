@@ -52,8 +52,10 @@ CAPTIONS = {
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _api(method: str, path: str, params: dict | None = None) -> dict:
-    """Call the Graph API; raises RuntimeError on any API or HTTP error."""
+def _api(method: str, path: str, params: dict | None = None, retries: int = 3) -> dict:
+    """Call the Graph API; raises RuntimeError on any API or HTTP error.
+    Retries up to `retries` times with exponential backoff on network timeouts.
+    """
     if not IG_ACCESS_TOKEN:
         raise RuntimeError(
             "IG_ACCESS_TOKEN not set.\n"
@@ -63,34 +65,44 @@ def _api(method: str, path: str, params: dict | None = None) -> dict:
     if params:
         base_params.update(params)
 
-    if method == "GET":
-        url = f"{GRAPH_API_BASE}/{path}?{urllib.parse.urlencode(base_params)}"
-        req = urllib.request.Request(url, method="GET")
-    else:
-        data = urllib.parse.urlencode(base_params).encode()
-        req = urllib.request.Request(
-            f"{GRAPH_API_BASE}/{path}", data=data, method=method
-        )
+    for attempt in range(1, retries + 1):
+        if method == "GET":
+            url = f"{GRAPH_API_BASE}/{path}?{urllib.parse.urlencode(base_params)}"
+            req = urllib.request.Request(url, method="GET")
+        else:
+            data = urllib.parse.urlencode(base_params).encode()
+            req = urllib.request.Request(
+                f"{GRAPH_API_BASE}/{path}", data=data, method=method
+            )
 
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            result = json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
         try:
-            err = json.loads(body).get("error", {})
-            raise RuntimeError(f"Graph API error {err.get('code')}: {err.get('message', body)}")
-        except (json.JSONDecodeError, AttributeError):
-            raise RuntimeError(f"HTTP {e.code}: {body[:300]}")
+            with urllib.request.urlopen(req, timeout=45) as r:
+                result = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()
+            try:
+                err = json.loads(body).get("error", {})
+                raise RuntimeError(f"Graph API error {err.get('code')}: {err.get('message', body)}")
+            except (json.JSONDecodeError, AttributeError):
+                raise RuntimeError(f"HTTP {e.code}: {body[:300]}")
+        except OSError as e:
+            if attempt == retries:
+                raise RuntimeError(f"Graph API call failed after {retries} attempts: {e}") from e
+            wait = 2 ** attempt  # 2s, 4s, 8s
+            print(f"\n  ⚠  Network error (attempt {attempt}/{retries}), retrying in {wait}s… ({e})")
+            time.sleep(wait)
+            continue
 
-    if "error" in result:
-        err = result["error"]
-        raise RuntimeError(f"Graph API error {err.get('code')}: {err.get('message')}")
-    return result
+        if "error" in result:
+            err = result["error"]
+            raise RuntimeError(f"Graph API error {err.get('code')}: {err.get('message')}")
+        return result
 
 
-def upload_to_cloudinary(image_path: str) -> str:
-    """Upload a local PNG to Cloudinary; returns the public HTTPS URL."""
+def upload_to_cloudinary(image_path: str, retries: int = 3) -> str:
+    """Upload a local PNG to Cloudinary; returns the public HTTPS URL.
+    Retries up to `retries` times with exponential backoff on network errors.
+    """
     with open(image_path, "rb") as f:
         image_b64 = base64.b64encode(f.read()).decode()
 
@@ -100,14 +112,21 @@ def upload_to_cloudinary(image_path: str) -> str:
     }).encode()
 
     url = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/image/upload"
-    req = urllib.request.Request(url, data=data, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            result = json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"Cloudinary upload failed ({e.code}): {e.read().decode()}") from e
 
-    return result["secure_url"]
+    for attempt in range(1, retries + 1):
+        req = urllib.request.Request(url, data=data, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:
+                result = json.loads(r.read())
+            return result["secure_url"]
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"Cloudinary upload failed ({e.code}): {e.read().decode()}") from e
+        except OSError as e:
+            if attempt == retries:
+                raise RuntimeError(f"Cloudinary upload failed after {retries} attempts: {e}") from e
+            wait = 2 ** attempt  # 2s, 4s, 8s
+            print(f"  ⚠  Upload error (attempt {attempt}/{retries}), retrying in {wait}s… ({e})")
+            time.sleep(wait)
 
 
 # ── Instagram Graph API posting ───────────────────────────────────────────────
@@ -192,6 +211,13 @@ def post_carousel(carousel_num: int, dry_run: bool = False) -> None:
         print(f"      Run: python daily_run.py --carousel {carousel_num}")
         sys.exit(1)
 
+    EXPECTED = 6  # 1 cover + 5 job cards
+    if len(images) > EXPECTED:
+        print(f"  ⚠  Found {len(images)} images for carousel {carousel_num} (expected {EXPECTED}).")
+        print(f"      Picking the {EXPECTED} most recently modified. Clean output/ to avoid this.")
+        images = sorted(images, key=lambda p: p.stat().st_mtime, reverse=True)[:EXPECTED]
+        images = sorted(images)  # restore filename order (cover first)
+
     caption = CAPTIONS.get(carousel_num, CAPTIONS[1])
 
     print(f"\n{'='*60}")
@@ -224,6 +250,15 @@ def post_carousel(carousel_num: int, dry_run: bool = False) -> None:
 
     print(f"\n  ✓  Carousel {carousel_num}/5 posted! (media_id={media_id})")
     print(f"  Posted to IG account {IG_ACCOUNT_ID}")
+
+    # Clean up — delete images now that they're live on Instagram
+    print(f"  Cleaning up {len(images)} image(s)…", end=" ", flush=True)
+    for img in images:
+        try:
+            img.unlink()
+        except OSError as e:
+            print(f"\n  ⚠  Could not delete {img.name}: {e}")
+    print("✓")
     print()
 
 
