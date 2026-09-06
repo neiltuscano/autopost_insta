@@ -28,6 +28,8 @@ C_GOLD    = (255, 200, 0)
 C_WHITE   = (255, 255, 255)
 C_GRAY    = (120, 135, 165)
 C_LGRAY   = (160, 175, 200)
+C_TEAL    = (0,   195, 185)   # entry-level / new grad accent
+C_TEAL2   = (0,   155, 148)
 
 W = H = 1080
 
@@ -103,6 +105,11 @@ def brand_stamp(draw, fonts, accent=C_ORANGE, bottom=True):
     draw.text((W-54-(hbb[2]-hbb[0]), strip_y+22-hbb[1]), handle, font=fonts["small"], fill=C_GRAY)
 
 
+def _is_entry_carousel(jobs: list[dict]) -> bool:
+    """True when the majority of jobs in this carousel group are entry-level."""
+    return sum(1 for j in jobs if j.get("level") == "entry") > len(jobs) / 2
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  COVER CARD
 # ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +129,10 @@ def make_cover(jobs: list[dict], carousel_num: int = 1) -> str:
         "date":    poppins("Medium", 28),
     }
 
-    draw_bg(draw, C_ORANGE)
+    is_entry = _is_entry_carousel(jobs)
+    accent   = C_TEAL if is_entry else C_ORANGE
+
+    draw_bg(draw, accent)
 
     # ── Date pill ─────────────────────────────────────────────────────────────
     today = datetime.now().strftime("%b %d, %Y")
@@ -140,30 +150,52 @@ def make_cover(jobs: list[dict], carousel_num: int = 1) -> str:
     draw.rounded_rectangle([(54, 28), (54+text_w(num_font, num_label)+32, 68)],
                             radius=14, fill=C_PANEL)
     nbb = num_font.getbbox(num_label)
-    draw.text((70, 38-nbb[1]), num_label, font=num_font, fill=C_ORANGE)
+    draw.text((70, 38-nbb[1]), num_label, font=num_font, fill=accent)
 
     # ── Headline ──────────────────────────────────────────────────────────────
-    hl1 = "TODAY'S"
-    hl2 = "H-1B DROPS"
-    hl3 = "🔥"
-    h1y = 142
-    draw_text_centered(draw, hl1, fonts["sub"], h1y, C_LGRAY)
-    h1h = text_h(fonts["sub"], hl1)
+    if is_entry:
+        hl1   = "NEW GRAD ROLE"
+        hl2   = "🎓 PICKS"
+        h1y   = 142
+        draw_text_centered(draw, hl1, fonts["sub"], h1y, C_LGRAY)
+        h1h   = text_h(fonts["sub"], hl1)
 
-    h2y = h1y + h1h + 10
-    part1 = "H-1B "
-    part2 = "DROPS " + hl3
-    p1w = text_w(fonts["hero"], part1)
-    p2w = text_w(fonts["hero"], part2)
-    hx  = (W - p1w - p2w) // 2
-    bb1 = fonts["hero"].getbbox(part1)
-    draw.text((hx, h2y-bb1[1]), part1, font=fonts["hero"], fill=C_ORANGE)
-    bb2 = fonts["hero"].getbbox(part2)
-    draw.text((hx+p1w, h2y-bb2[1]), part2, font=fonts["hero"], fill=C_WHITE)
-    h2h = text_h(fonts["hero"], hl2)
+        h2y   = h1y + h1h + 10
+        part1 = "🎓 "
+        part2 = "PICKS"
+        p1w   = text_w(fonts["hero"], part1)
+        p2w   = text_w(fonts["hero"], part2)
+        hx    = (W - p1w - p2w) // 2
+        bb1   = fonts["hero"].getbbox(part1)
+        draw.text((hx, h2y-bb1[1]), part1, font=fonts["hero"], fill=C_TEAL)
+        bb2   = fonts["hero"].getbbox(part2)
+        draw.text((hx+p1w, h2y-bb2[1]), part2, font=fonts["hero"], fill=C_WHITE)
+        h2h   = text_h(fonts["hero"], part2)
 
-    sub_y = h2y + h2h + 18
-    draw_text_centered(draw, "5 Jobs · All H-1B Verified · Swipe →", fonts["body"], sub_y, C_GRAY)
+        sub_y = h2y + h2h + 18
+        draw_text_centered(draw, "Entry Level · OPT Friendly · H-1B Sponsor", fonts["body"], sub_y, C_GRAY)
+    else:
+        hl1 = "TODAY'S"
+        hl2 = "H-1B DROPS"
+        hl3 = "🔥"
+        h1y = 142
+        draw_text_centered(draw, hl1, fonts["sub"], h1y, C_LGRAY)
+        h1h = text_h(fonts["sub"], hl1)
+
+        h2y = h1y + h1h + 10
+        part1 = "H-1B "
+        part2 = "DROPS " + hl3
+        p1w = text_w(fonts["hero"], part1)
+        p2w = text_w(fonts["hero"], part2)
+        hx  = (W - p1w - p2w) // 2
+        bb1 = fonts["hero"].getbbox(part1)
+        draw.text((hx, h2y-bb1[1]), part1, font=fonts["hero"], fill=C_ORANGE)
+        bb2 = fonts["hero"].getbbox(part2)
+        draw.text((hx+p1w, h2y-bb2[1]), part2, font=fonts["hero"], fill=C_WHITE)
+        h2h = text_h(fonts["hero"], hl2)
+
+        sub_y = h2y + h2h + 18
+        draw_text_centered(draw, "5 Jobs · All H-1B Verified · Swipe →", fonts["body"], sub_y, C_GRAY)
     sub_h = text_h(fonts["body"], "x")
 
     # ── Job list ──────────────────────────────────────────────────────────────
@@ -200,9 +232,9 @@ def make_cover(jobs: list[dict], carousel_num: int = 1) -> str:
 
     # ── CTA ───────────────────────────────────────────────────────────────────
     cta_y = list_top + 5*(slot_h+slot_gap) + 24
-    draw_text_centered(draw, "Link in bio to apply  ↗", fonts["body"], cta_y, C_ORANGE)
+    draw_text_centered(draw, "Link in bio to apply  ↗", fonts["body"], cta_y, accent)
 
-    brand_stamp(draw, fonts)
+    brand_stamp(draw, fonts, accent)
 
     out = os.path.join(OUTPUT_DIR, f"carousel_{carousel_num:02d}_00_cover.png")
     img.save(out, "PNG")
@@ -308,6 +340,10 @@ def make_job_card(job: dict, index: int, carousel_num: int = 1) -> str:
     bx, _ = draw_pill(draw, bx, cy, "✓  H-1B Sponsorship", fonts["badge"],
                       bg=(*C_GREEN2, 255), fg=C_WHITE, px=22, py=12, r=22)
     bx += 14
+    if job.get("level") == "entry":
+        bx, _ = draw_pill(draw, bx, cy, "🎓 New Grad Friendly", fonts["badge"],
+                          bg=(*C_TEAL2, 255), fg=C_WHITE, px=22, py=12, r=22)
+        bx += 14
     cat = _category(job.get("title",""))
     draw_pill(draw, bx, cy, cat, fonts["badge"],
               bg=C_PANEL, fg=C_LGRAY, px=22, py=12, r=22)
@@ -357,10 +393,23 @@ def _category(title):
 def generate_daily_carousel(jobs: list[dict], carousel_num: int = 1) -> list[str]:
     """
     Generate cover + 5 job cards for one carousel.
+    Pre-cleans any stale images for this carousel slot before generating.
     Returns list of 6 file paths in posting order.
     """
     jobs  = jobs[:5]
     paths = []
+
+    # Pre-clean stale images from a previous run for this carousel slot
+    import glob
+    stale = glob.glob(os.path.join(OUTPUT_DIR, f"carousel_{carousel_num:02d}_*.png"))
+    for f in stale:
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+    if stale:
+        print(f"  Cleaned {len(stale)} stale image(s) for carousel {carousel_num}")
+
     print(f"\n  Generating carousel {carousel_num}/5 — {datetime.now().strftime('%b %d, %Y')}...")
     paths.append(make_cover(jobs, carousel_num))
     for i, job in enumerate(jobs):

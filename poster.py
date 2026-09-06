@@ -14,11 +14,15 @@ Usage:
 """
 from __future__ import annotations
 
-import os, sys, base64, json, argparse, time
+import os, sys, base64, json, argparse, time, socket
 from pathlib import Path
 from datetime import datetime
 
 import urllib.request, urllib.parse, urllib.error
+
+# Hard timeout for ALL socket operations including DNS resolution.
+# Without this, a DNS failure on macOS hangs for ~25 min per attempt.
+socket.setdefaulttimeout(30)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -41,12 +45,14 @@ CLOUDINARY_UPLOAD_PRESET = os.getenv("CLOUDINARY_UPLOAD_PRESET", "f1jobs")
 GRAPH_API_BASE           = "https://graph.facebook.com/v26.0"
 
 # Captions per carousel slot
+# Carousels 1-3 → entry-level / new grad focus
+# Carousels 4-5 → senior / experienced roles
 CAPTIONS = {
-    1: "🚀 Fresh H-1B & F-1 visa-sponsored jobs — Part 1/5!\nSwipe to explore today's top picks. All roles open to international candidates.\n\n#H1BJobs #F1Visa #VisaSponsorship #InternationalStudents #USJobs #TechJobs #f1jobs",
-    2: "💼 More visa-friendly opportunities — Part 2/5!\nThese companies actively sponsor H-1B transfers & new petitions.\n\n#H1BSponsorship #F1OptJobs #InternationalTalent #USAJobs #SoftwareEngineer #f1jobs",
-    3: "🌟 Top employers hiring right now — Part 3/5!\nAll roles include visa sponsorship. Drop a 🙋 if you're job hunting!\n\n#ImmigrationJobs #H1BTransfer #VisaFriendly #TechCareers #JobAlert #f1jobs",
-    4: "⚡ Don't miss these — Part 4/5!\nRemote-friendly & hybrid roles that sponsor international workers.\n\n#RemoteWork #H1BVisa #F1Jobs #InternationalStudents #JobSearch #f1jobs",
-    5: "🎯 Final batch of the day — Part 5/5!\nSave this post & share with someone who needs a visa-sponsored job!\n\n#JobOpportunity #H1B #F1Visa #VisaSponsored #USATech #f1jobs",
+    1: "🎓 New Grad Alert! Entry-level roles with H-1B sponsorship — Part 1/5!\nAll roles welcome F-1 OPT & H-1B applicants. 0–2 years experience needed.\n\n#NewGrad #H1BJobs #F1Visa #OPT #EntryLevel #USJobs #NewGradJobs #f1jobs",
+    2: "🎓 More entry-level opportunities for international grads — Part 2/5!\nThese top companies sponsor H-1B & OPT. Get your foot in the door! 🚪\n\n#NewGradJobs #H1BSponsorship #F1OptJobs #EntryLevelTech #InternationalStudents #f1jobs",
+    3: "🎓 Hot entry-level picks of the day — Part 3/5!\nSwipe to find your next role. All positions sponsor H-1B & F-1 OPT. Drop a 🙋 if you're job hunting!\n\n#H1BNewGrad #OPTJobs #VisaFriendly #EntryLevelSWE #TechJobs #f1jobs",
+    4: "⚡ Senior & experienced roles with visa sponsorship — Part 4/5!\n3+ years exp · Remote-friendly · H-1B transfer welcome.\n\n#SeniorEngineer #H1BVisa #F1Jobs #InternationalTalent #RemoteWork #f1jobs",
+    5: "🎯 Top senior picks of the day — Part 5/5!\nSave this post & share with someone who needs a visa-sponsored role!\n\n#JobOpportunity #H1B #F1Visa #VisaSponsored #SeniorDev #USATech #f1jobs",
 }
 
 
