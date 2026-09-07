@@ -12,7 +12,7 @@ Usage:
 """
 from __future__ import annotations
 
-import os, argparse
+import os, argparse, threading
 from datetime import datetime
 
 
@@ -75,13 +75,29 @@ def main():
 
     # ── Step 4: Google Sheets sync ─────────────────────────────────────────────
     sheet_url = os.getenv("GOOGLE_SHEET_URL", "")
+    SHEETS_TIMEOUT = 120  # seconds — never let a hung sync block posting
     if not args.no_sheets:
-        print("\n[4/5]  Syncing to Google Sheets...")
-        try:
-            from sync_to_sheets import sync
-            sheet_url = sync() or sheet_url
-        except Exception as e:
-            print(f"  ⚠  Sheets sync failed (non-fatal): {e}")
+        print(f"\n[4/5]  Syncing to Google Sheets (timeout {SHEETS_TIMEOUT}s)...")
+        _sync_result = [None]
+        _sync_error  = [None]
+
+        def _do_sync():
+            try:
+                from sync_to_sheets import sync
+                _sync_result[0] = sync()
+            except Exception as exc:
+                _sync_error[0] = exc
+
+        t = threading.Thread(target=_do_sync, daemon=True)
+        t.start()
+        t.join(timeout=SHEETS_TIMEOUT)
+
+        if t.is_alive():
+            print(f"  ⚠  Sheets sync timed out after {SHEETS_TIMEOUT}s (non-fatal) — continuing to post")
+        elif _sync_error[0]:
+            print(f"  ⚠  Sheets sync failed (non-fatal): {_sync_error[0]}")
+        else:
+            sheet_url = _sync_result[0] or sheet_url
     else:
         print("\n[4/5]  Skipping Google Sheets sync")
 
