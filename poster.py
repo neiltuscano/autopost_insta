@@ -58,9 +58,18 @@ CAPTIONS = {
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+# Graph API error codes that are worth retrying (transient / rate-limit issues)
+_RETRYABLE_API_CODES = {
+    1,     # unknown / internal error
+    2,     # API service temporarily unavailable
+    4,     # too many calls (rate limit)
+    9004,  # media-type rejection — often Instagram can't fetch the CDN URL yet
+}
+
 def _api(method: str, path: str, params: dict | None = None, retries: int = 3) -> dict:
     """Call the Graph API; raises RuntimeError on any API or HTTP error.
-    Retries up to `retries` times with exponential backoff on network timeouts.
+    Retries up to `retries` times with exponential backoff on network timeouts
+    and transient Graph API errors (codes 1, 2, 4, 9004).
     """
     if not IG_ACCESS_TOKEN:
         raise RuntimeError(
@@ -87,10 +96,17 @@ def _api(method: str, path: str, params: dict | None = None, retries: int = 3) -
         except urllib.error.HTTPError as e:
             body = e.read().decode()
             try:
-                err = json.loads(body).get("error", {})
-                raise RuntimeError(f"Graph API error {err.get('code')}: {err.get('message', body)}")
+                err  = json.loads(body).get("error", {})
+                code = err.get("code")
+                msg  = err.get("message", body)
             except (json.JSONDecodeError, AttributeError):
                 raise RuntimeError(f"HTTP {e.code}: {body[:300]}")
+            if code in _RETRYABLE_API_CODES and attempt < retries:
+                wait = 2 ** attempt  # 2s, 4s
+                print(f"\n  ⚠  Graph API error {code} (attempt {attempt}/{retries}), retrying in {wait}s… ({msg})")
+                time.sleep(wait)
+                continue
+            raise RuntimeError(f"Graph API error {code}: {msg}")
         except OSError as e:
             if attempt == retries:
                 raise RuntimeError(f"Graph API call failed after {retries} attempts: {e}") from e
@@ -100,8 +116,15 @@ def _api(method: str, path: str, params: dict | None = None, retries: int = 3) -
             continue
 
         if "error" in result:
-            err = result["error"]
-            raise RuntimeError(f"Graph API error {err.get('code')}: {err.get('message')}")
+            err  = result["error"]
+            code = err.get("code")
+            msg  = err.get("message")
+            if code in _RETRYABLE_API_CODES and attempt < retries:
+                wait = 2 ** attempt
+                print(f"\n  ⚠  Graph API error {code} (attempt {attempt}/{retries}), retrying in {wait}s… ({msg})")
+                time.sleep(wait)
+                continue
+            raise RuntimeError(f"Graph API error {code}: {msg}")
         return result
 
 
