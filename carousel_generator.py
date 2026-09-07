@@ -154,14 +154,14 @@ def make_cover(jobs: list[dict], carousel_num: int = 1) -> str:
 
     # ── Headline ──────────────────────────────────────────────────────────────
     if is_entry:
-        hl1   = "NEW GRAD ROLE"
-        hl2   = "🎓 PICKS"
+        hl1   = "TODAY'S"
+        hl2   = "NEW GRAD PICKS"
         h1y   = 142
         draw_text_centered(draw, hl1, fonts["sub"], h1y, C_LGRAY)
         h1h   = text_h(fonts["sub"], hl1)
 
         h2y   = h1y + h1h + 10
-        part1 = "🎓 "
+        part1 = "NEW GRAD "
         part2 = "PICKS"
         p1w   = text_w(fonts["hero"], part1)
         p2w   = text_w(fonts["hero"], part2)
@@ -175,16 +175,15 @@ def make_cover(jobs: list[dict], carousel_num: int = 1) -> str:
         sub_y = h2y + h2h + 18
         draw_text_centered(draw, "Entry Level · OPT Friendly · H-1B Sponsor", fonts["body"], sub_y, C_GRAY)
     else:
-        hl1 = "TODAY'S"
-        hl2 = "H-1B DROPS"
-        hl3 = "🔥"
+        hl1 = "SENIOR ROLES"
+        hl2 = "PRO PICKS"
         h1y = 142
         draw_text_centered(draw, hl1, fonts["sub"], h1y, C_LGRAY)
         h1h = text_h(fonts["sub"], hl1)
 
         h2y = h1y + h1h + 10
-        part1 = "H-1B "
-        part2 = "DROPS " + hl3
+        part1 = "PRO "
+        part2 = "PICKS"
         p1w = text_w(fonts["hero"], part1)
         p2w = text_w(fonts["hero"], part2)
         hx  = (W - p1w - p2w) // 2
@@ -195,7 +194,7 @@ def make_cover(jobs: list[dict], carousel_num: int = 1) -> str:
         h2h = text_h(fonts["hero"], hl2)
 
         sub_y = h2y + h2h + 18
-        draw_text_centered(draw, "5 Jobs · All H-1B Verified · Swipe →", fonts["body"], sub_y, C_GRAY)
+        draw_text_centered(draw, "5 Jobs · All H-1B Verified · Swipe", fonts["body"], sub_y, C_GRAY)
     sub_h = text_h(fonts["body"], "x")
 
     # ── Job list ──────────────────────────────────────────────────────────────
@@ -341,7 +340,7 @@ def make_job_card(job: dict, index: int, carousel_num: int = 1) -> str:
                       bg=(*C_GREEN2, 255), fg=C_WHITE, px=22, py=12, r=22)
     bx += 14
     if job.get("level") == "entry":
-        bx, _ = draw_pill(draw, bx, cy, "🎓 New Grad Friendly", fonts["badge"],
+        bx, _ = draw_pill(draw, bx, cy, "New Grad Friendly", fonts["badge"],
                           bg=(*C_TEAL2, 255), fg=C_WHITE, px=22, py=12, r=22)
         bx += 14
     cat = _category(job.get("title",""))
@@ -352,7 +351,7 @@ def make_job_card(job: dict, index: int, carousel_num: int = 1) -> str:
     # ── CTA strip ─────────────────────────────────────────────────────────────
     cta_top = H - 175
     draw.rounded_rectangle([(60, cta_top), (W-60, cta_top+80)], radius=22, fill=acc)
-    cta  = "APPLY NOW  →  Link in Bio"
+    cta  = "APPLY NOW  |  Link in Bio"
     cbb2 = fonts["cta"].getbbox(cta)
     cw   = cbb2[2]-cbb2[0]
     draw.text(((W-cw)//2, cta_top+20-cbb2[1]), cta, font=fonts["cta"], fill=C_WHITE)
