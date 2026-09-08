@@ -48,18 +48,36 @@ fi
 
 cd "$PROJECT_DIR"
 
-# ── Carousel 1: full pipeline (fetch + generate all + sync + post 1) ──────────
-if [ "$CAROUSEL_NUM" = "1" ]; then
-    echo "  [1/2] Running full pipeline (fetch, generate, sync to Sheets)..." >> "$LOG_FILE"
+# ── Helper: run full pipeline (fetch + generate all 5 + sync) ─────────────────
+run_pipeline() {
+    echo "  [pipeline] Fetching jobs, generating all 5 carousels, syncing to Sheets..." >> "$LOG_FILE"
     "$PYTHON" -u daily_run.py --no-post >> "$LOG_FILE" 2>&1
-    EXIT_CODE=$?
-
-    if [ $EXIT_CODE -ne 0 ]; then
-        echo "  ✗ Pipeline failed (exit $EXIT_CODE)" >> "$LOG_FILE"
+    local code=$?
+    if [ $code -ne 0 ]; then
+        echo "  ✗ Pipeline failed (exit $code)" >> "$LOG_FILE"
         osascript -e "display notification \"Pipeline failed — check logs/\" with title \"f1jobs ✗\"" 2>/dev/null
-        exit $EXIT_CODE
+        exit $code
     fi
     echo "  ✓ All 5 carousels generated + Sheets synced" >> "$LOG_FILE"
+}
+
+# ── Carousel 1: always runs the full pipeline ─────────────────────────────────
+if [ "$CAROUSEL_NUM" = "1" ]; then
+    echo "  [1/2] Running full pipeline (fetch, generate, sync to Sheets)..." >> "$LOG_FILE"
+    run_pipeline
+fi
+
+# ── Carousels 2-5: self-healing — run pipeline if images are missing ──────────
+if [ "$CAROUSEL_NUM" != "1" ]; then
+    PREFIX="carousel_$(printf '%02d' $CAROUSEL_NUM)_"
+    IMAGE_COUNT=$(ls "$PROJECT_DIR/output/${PREFIX}"*.png 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$IMAGE_COUNT" -lt 2 ]; then
+        echo "  ⚠  No images found for carousel $CAROUSEL_NUM (carousel 1 may have been skipped)" >> "$LOG_FILE"
+        echo "  [1/2] Running full pipeline as fallback..." >> "$LOG_FILE"
+        run_pipeline
+    else
+        echo "  [1/2] Images ready ($IMAGE_COUNT found) — skipping generation" >> "$LOG_FILE"
+    fi
 fi
 
 # ── All carousels: post to Instagram ──────────────────────────────────────────
