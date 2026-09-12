@@ -240,12 +240,19 @@ def post_carousel(carousel_num: int, dry_run: bool = False) -> None:
         print(f"      Run: python daily_run.py --carousel {carousel_num}")
         sys.exit(1)
 
-    EXPECTED = 6  # 1 cover + 5 job cards
-    if len(images) > EXPECTED:
-        print(f"  ⚠  Found {len(images)} images for carousel {carousel_num} (expected {EXPECTED}).")
-        print(f"      Picking the {EXPECTED} most recently modified. Clean output/ to avoid this.")
-        images = sorted(images, key=lambda p: p.stat().st_mtime, reverse=True)[:EXPECTED]
-        images = sorted(images)  # restore filename order (cover first)
+    # Always keep the cover; deduplicate job cards by mtime if stale images accumulate.
+    # This prevents concurrent pipeline runs from causing the cover to be dropped.
+    cover_images = [img for img in images if '_00_cover' in img.name]
+    card_images  = [img for img in images if '_00_cover' not in img.name]
+    if not cover_images:
+        print(f"  ✗  No cover image found for carousel {carousel_num} in {out}/")
+        print(f"      Run: python daily_run.py --carousel {carousel_num}")
+        sys.exit(1)
+    if len(card_images) > 5:
+        print(f"  ⚠  Found {len(card_images)} job cards for carousel {carousel_num} (expected 5) — picking 5 most recent.")
+        print(f"      Clean output/ to avoid stale images accumulating.")
+        card_images = sorted(card_images, key=lambda p: p.stat().st_mtime, reverse=True)[:5]
+    images = sorted(cover_images + card_images)  # filename order: cover first, then cards 01-05
 
     caption = CAPTIONS.get(carousel_num, CAPTIONS[1])
 

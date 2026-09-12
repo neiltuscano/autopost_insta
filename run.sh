@@ -50,9 +50,29 @@ cd "$PROJECT_DIR"
 
 # ── Helper: run full pipeline (fetch + generate all 5 + sync) ─────────────────
 run_pipeline() {
+    # Atomic lock: prevents two LaunchAgent firings from running the pipeline
+    # concurrently (e.g. a late carousel-1 wake racing with carousel-2's self-heal).
+    LOCK_DIR="$PROJECT_DIR/.pipeline_lock"
+    if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+        echo "  ⚠  Pipeline already running (lock exists) — waiting up to 30 min..." >> "$LOG_FILE"
+        WAITED=0
+        while [ -d "$LOCK_DIR" ] && [ $WAITED -lt 1800 ]; do
+            sleep 30
+            WAITED=$(( WAITED + 30 ))
+        done
+        if [ -d "$LOCK_DIR" ]; then
+            echo "  ⚠  Lock still held after 30 min — breaking stale lock and skipping pipeline" >> "$LOG_FILE"
+            rm -rf "$LOCK_DIR"
+            return 0  # other pipeline likely still running; let poster use whatever images exist
+        fi
+        echo "  ✓ Lock released after ${WAITED}s — images should now be ready" >> "$LOG_FILE"
+        return 0  # other pipeline finished; skip re-running it
+    fi
+
     echo "  [pipeline] Fetching jobs, generating all 5 carousels, syncing to Sheets..." >> "$LOG_FILE"
     "$PYTHON" -u daily_run.py --no-post >> "$LOG_FILE" 2>&1
     local code=$?
+    rm -rf "$LOCK_DIR"
     if [ $code -ne 0 ]; then
         echo "  ✗ Pipeline failed (exit $code)" >> "$LOG_FILE"
         osascript -e "display notification \"Pipeline failed — check logs/\" with title \"f1jobs ✗\"" 2>/dev/null
