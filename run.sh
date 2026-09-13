@@ -90,13 +90,15 @@ fi
 # ── Carousels 2-5: self-healing — run pipeline if images are missing ──────────
 if [ "$CAROUSEL_NUM" != "1" ]; then
     PREFIX="carousel_$(printf '%02d' $CAROUSEL_NUM)_"
-    IMAGE_COUNT=$(ls "$PROJECT_DIR/output/${PREFIX}"*.png 2>/dev/null | wc -l | tr -d ' ')
+    # Only count images from today (within last 10 h) — stale files from a
+    # previous day's pipeline run should not block a fresh generation.
+    IMAGE_COUNT=$(find "$PROJECT_DIR/output" -name "${PREFIX}*.png" -mmin -600 -type f 2>/dev/null | wc -l | tr -d ' ')
     if [ "$IMAGE_COUNT" -lt 2 ]; then
-        echo "  ⚠  No images found for carousel $CAROUSEL_NUM (carousel 1 may have been skipped)" >> "$LOG_FILE"
+        echo "  ⚠  No fresh images for carousel $CAROUSEL_NUM (stale or missing) — running pipeline..." >> "$LOG_FILE"
         echo "  [1/2] Running full pipeline as fallback..." >> "$LOG_FILE"
         run_pipeline
     else
-        echo "  [1/2] Images ready ($IMAGE_COUNT found) — skipping generation" >> "$LOG_FILE"
+        echo "  [1/2] Fresh images ready ($IMAGE_COUNT found) — skipping generation" >> "$LOG_FILE"
     fi
 fi
 
@@ -114,5 +116,13 @@ else
 fi
 
 echo "  Finished: $(date '+%H:%M:%S')" >> "$LOG_FILE"
+
+# ── Wake alarm: ensure Mac is awake for tomorrow's 8am carousel-1 run ─────────
+# pmset schedule wake is safe to call repeatedly; the new alarm replaces the old.
+WAKE_TIME=$(date -v+1d -v8H -v0M -v0S "+%m/%d/%y %H:%M:%S" 2>/dev/null)
+if [ -n "$WAKE_TIME" ]; then
+    sudo pmset schedule wake "$WAKE_TIME" 2>/dev/null         && echo "  ✓ Wake alarm set for $WAKE_TIME" >> "$LOG_FILE"         || echo "  ⚠  pmset wake alarm failed (needs sudo; run once manually to grant)" >> "$LOG_FILE"
+fi
+
 ls -t "$LOG_DIR"/run_*.log 2>/dev/null | tail -n +31 | xargs rm -f
 exit $POST_CODE
